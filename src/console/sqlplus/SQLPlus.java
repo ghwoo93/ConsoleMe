@@ -1,5 +1,9 @@
 package console.sqlplus;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -101,15 +105,24 @@ public class SQLPlus extends IConnectImpl{
 	
 	public void ed(String query) {
 		try {
-			Runtime.getRuntime().exec("notepad 경환씨천재.txt");
+			Runtime.getRuntime().exec(
+					"notepad "+query.trim().substring(3)+".txt");
 		} catch (IOException e) {
-			
 			e.printStackTrace();
 		}
 	}
-	
-	public void at() {
+	//System.getProperty("user.home")
+	public void fileRead(String query) {
 		
+		try {
+			BufferedReader br = 
+					new BufferedReader(
+							new FileReader(System.getProperty("user.home")+"abc.txt"));
+			while((data=br.readLine())!=null) 
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	public void commit() throws SQLException {
