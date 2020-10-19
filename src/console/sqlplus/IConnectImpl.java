@@ -18,6 +18,25 @@ public class IConnectImpl implements IConnect{
 	public CallableStatement csmt;
 	public Scanner sc = new Scanner(System.in);
 	
+	private int connectCounter =1;
+	private String user;
+	
+	public String getUser() {
+		return user;
+	}
+
+	public void setUser(String user) {
+		this.user = user;
+	}
+
+	public int getConnectCounter() {
+		return connectCounter;
+	}
+
+	public void setConnectCounter(int connectCounter) {
+		this.connectCounter = connectCounter;
+	}
+
 	static {
 		try {
 			Class.forName(ORACLE_DRIVER);
@@ -26,60 +45,90 @@ public class IConnectImpl implements IConnect{
 		}
 	}
 	
-	public IConnectImpl() {}
 	
 	public IConnectImpl(String url) {
-		connectCount(url);
+		login(url);
 	}
+	
 	@Override
-	public void connectCount(String url) {
-		boolean flag = false;
-		int tryCounter =1;
-		while(!flag) {//2번더틀림 cmd돌아감
-			//커넥트로 cmd 출력 로그인시도
-			flag = connect(url);
-			tryCounter++;
-			if(tryCounter==3) {
-				close();
-				break;
-			}
-		}
+	public int connectCount() {
+		return connectCounter++;
 	}
+	
+	
 	@Override
-	public boolean connect(String url) {
-		boolean result = false;
+	public void login(String url) {
 		String firstInput = printLocal();
 		int dashFlag = firstInput.indexOf("/");
-		String id="";
+		String user="";
 		String pwd="";
 		if(firstInput.equalsIgnoreCase("sqlplus")) {//아이디/비번 입력필요
-			System.out.print("사용자명 입력:");
-			id = sc.nextLine();
-			System.out.print("비밀번호 입력:");
-			pwd = sc.nextLine();
+			while(true) {
+				if(!conn.equals(null)) {
+					break;
+				}
+				if(connectCounter>=3) {
+					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
+					break;
+				}
+				System.out.print("사용자명 입력:");
+				user = sc.nextLine();
+				System.out.print("비밀번호 입력:");
+				pwd = sc.nextLine();
+				connecter(url, user, pwd);
+				connectCount();
+			}
 		}else if(dashFlag==-1) {//아이디입력됨
-			System.out.print("비밀번호 입력:");
-			id = firstInput.substring(firstInput.indexOf(" ")+1);
-			pwd = sc.nextLine();
+			while(true) {
+				if(!conn.equals(null)) {
+					break;
+				}
+				if(connectCounter>3) {
+					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
+					break;
+				}
+				System.out.print("비밀번호 입력:");
+				user = firstInput.substring(firstInput.indexOf(" ")+1);
+				pwd = sc.nextLine();
+				connecter(url, user, pwd);
+				connectCount();
+			}
 		}else if(dashFlag>=0){//아이디/비번 입력됨
-			id = firstInput.substring(firstInput.indexOf(" ")+1,dashFlag);
-			pwd = firstInput.substring(dashFlag+1);
+			while(true) {
+				if(conn!=null) {
+					break;
+				}
+				if(connectCounter>3) {
+					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
+					break;
+				}
+				user = firstInput.substring(firstInput.indexOf(" ")+1,dashFlag);
+				pwd = firstInput.substring(dashFlag+1);
+				connecter(url, user, pwd);
+				connectCount();
+			}
 		}else {//아무것도 아닐때
 			System.out.println(
 				firstInput+"은(는) 내부 또는 외부 명령, 실행할 수 있는 프로그램, "
 				+ "또는\r\n배치 파일이 아닙니다.");
 		}
+		
+	}
+	
+	@Override
+	public void connecter(String url,String user,String pwd) {
 		try {
-			conn = DriverManager.getConnection(url, id, pwd);
+			conn = DriverManager.getConnection(url, user, pwd);
+			this.user = user;
 			System.out.println("다음에 접속됨:\r\n" + 
 				"Oracle Database 11g Enterprise Edition Release 11.2.0.1.0 - 64bit Production\r\n" + 
 				"With the Partitioning, OLAP, Data Mining and Real Application Testing options");
-			result = true;
 		} catch (SQLException e) {
 			System.out.println("ERROR:\r\n"+e.getMessage());
 		}
-		return result;
 	}
+	
+		
 
 	@Override
 	public void execute() throws Exception {}
@@ -140,15 +189,12 @@ public class IConnectImpl implements IConnect{
 		return resultSb;
 	}
 	
-//	@Override
-//	public String getQueryString() {
-//		System.out.print("SQL>");
-//		return sc.nextLine();
-//	}
-	
 	//로컬 C:\Users\계정명> 출력 입력대기
 	@Override
 	public String printLocal() {
+		System.out.println("Microsoft Windows [Version 10.0.19041.572]\r\n" + 
+				"(c) 2020 Microsoft Corporation. All rights reserved.");
+		System.out.println();
 		System.out.print(System.getProperty("user.home")+">");
 		return sc.nextLine();
 	}
