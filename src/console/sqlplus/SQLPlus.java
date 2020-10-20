@@ -13,8 +13,9 @@ import java.util.Vector;
 
 public class SQLPlus extends IConnectImpl{
 	
-	public SQLPlus() {
-		super(ORACLE_URL);
+	public String desc(String query) {
+		String tableName = query.substring(4);
+		return "SELECT * FROM "+tableName;
 	}
 	
 	
@@ -22,6 +23,8 @@ public class SQLPlus extends IConnectImpl{
 		rs=psmt.getResultSet();
 		ResultSetMetaData rsmd = rs.getMetaData();
 		int columnCount = rsmd.getColumnCount();
+		
+		//select
 		List<Integer> dashCount = new Vector<Integer>();
 		for(int i=1;i<=columnCount;i++) {
 			int types = rsmd.getColumnType(i);
@@ -112,17 +115,36 @@ public class SQLPlus extends IConnectImpl{
 		}
 	}
 	//System.getProperty("user.home")
-	public void fileRead(String query) {
-		
+	//프로시저 안됨
+	public String fileRead(String query) {
+		BufferedReader br=null;
+		String data="";
+		String descQuery="";
 		try {
-			BufferedReader br = 
-					new BufferedReader(
-							new FileReader(System.getProperty("user.home")+"abc.txt"));
-			while((data=br.readLine())!=null) 
+//			System.out.println(System.getProperty("user.home")
+//					+"\\"+query.substring(query.indexOf("@")+1,query.length()-1)+".sql");
+			br = 
+				new BufferedReader(
+						new FileReader(
+								System.getProperty("user.home")
+									+"\\"+query.substring(query.indexOf("@")+1,query.length()-1)+".txt"));
+			while((data=br.readLine())!=null) {
+				descQuery+=data;
+			}
+			if(descQuery.endsWith(";")) 
+				descQuery=descQuery.substring(0,descQuery.length()-1);
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally {
+			try {
+				br.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
+		return descQuery;
 	}
 	
 	public void commit() throws SQLException {
@@ -131,8 +153,11 @@ public class SQLPlus extends IConnectImpl{
 	
 	@Override
 	public void execute() throws Exception {
+		boolean ccFlag = false; 
+		String query="";
 		while(true) {
-			String query = getPartedQueryString().toString();
+			//펄스면 입력받게
+			if(!ccFlag) query = getPartedQueryString().toString();
 			
 			//conn,show,ed,@,commit
 			if("EXIT".equalsIgnoreCase(query.trim())) {
@@ -146,44 +171,58 @@ public class SQLPlus extends IConnectImpl{
 				System.out.println("커밋완료");
 			}else if(query.contains("ed")) {
 				ed(query);
+			}else if(query.contains("@")){
+				query = fileRead(query);
+				ccFlag = true;
+				continue;
 			}else {
-				
 				psmt=conn.prepareStatement(query);
-				
-				try {
-					boolean flag = psmt.execute();
-					if(flag) { //쿼리문이 select
-						select();
-					} else {//기타 쿼리문
-						int affected = psmt.getUpdateCount();
-						if(query.trim().toUpperCase().startsWith("UPDATE")) {
-							System.out.println(affected+"행이 수정되었어요.");
-						}else if(query.trim().toUpperCase().startsWith("DELETE")) {
-							System.out.println(affected+"행이 삭제되었어요.");
-						}else if(query.trim().toUpperCase().startsWith("INSERT")) {
-							System.out.println(affected+"행이 입력되었어요.");
-						}
-					}
+				boolean flag = psmt.execute();
+				//여기서 desc
+				if(query.contains("desc")) {
+					//desc
 					
-				} catch(SQLException e) {
-					System.out.println(e.getMessage());
+				}else {
+					//select
+					try {
+						if(flag) { //쿼리문이 select
+							select();
+						} else {//기타 쿼리문
+							int affected = psmt.getUpdateCount();
+							if(query.trim().toUpperCase().startsWith("UPDATE")) {
+								System.out.println(affected+"행이 수정되었어요.");
+							}else if(query.trim().toUpperCase().startsWith("DELETE")) {
+								System.out.println(affected+"행이 삭제되었어요.");
+							}else if(query.trim().toUpperCase().startsWith("INSERT")) {
+								System.out.println(affected+"행이 입력되었어요.");
+							}
+						}
+						
+					} catch(SQLException e) {
+						System.out.println(e.getMessage());
+					}
 				}
 			}
-		}
+			ccFlag = false; 
+		}//while
 	}
 	
 	public static void main(String[] args) throws Exception {
 		SQLPlus main = new SQLPlus();
 		while(true) {
-			if(main.conn!=null) {
-				main.execute();
-			}else {
+			if(main.conn==null) {
+				System.out.println("log");
 				main.login(ORACLE_URL);
+			} else if(main.conn!=null) {
+				System.out.println("exe");
+				main.execute();
+			}
+			if(main.getConnectCounter()>3) {
+				main.setConnectCounter(1);
+				System.out.println("종료합니다");
+				break;
 			}
 			
-			if(main.getConnectCounter()>=3) {
-				main.setConnectCounter(1);
-			}
 		}
 	}
 }

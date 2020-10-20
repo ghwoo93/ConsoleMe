@@ -18,6 +18,14 @@ public class IConnectImpl implements IConnect{
 	public CallableStatement csmt;
 	public Scanner sc = new Scanner(System.in);
 	
+	static {
+		try {
+			Class.forName(ORACLE_DRIVER);
+		} catch (ClassNotFoundException e) {
+			System.out.println("Driver loading failed!:"+e.getMessage());
+		}
+	}
+	
 	private int connectCounter =1;
 	private String user;
 	
@@ -36,82 +44,51 @@ public class IConnectImpl implements IConnect{
 	public void setConnectCounter(int connectCounter) {
 		this.connectCounter = connectCounter;
 	}
-
-	static {
-		try {
-			Class.forName(ORACLE_DRIVER);
-		} catch (ClassNotFoundException e) {
-			System.out.println("Driver loading failed!:"+e.getMessage());
-		}
-	}
-	
-	
-	public IConnectImpl(String url) {
-		login(url);
-	}
 	
 	@Override
 	public int connectCount() {
 		return connectCounter++;
 	}
 	
-	
 	@Override
 	public void login(String url) {
-		String firstInput = printLocal();
-		int dashFlag = firstInput.indexOf("/");
-		String user="";
-		String pwd="";
-		if(firstInput.equalsIgnoreCase("sqlplus")) {//아이디/비번 입력필요
-			while(true) {
-				if(!conn.equals(null)) {
-					break;
-				}
-				if(connectCounter>=3) {
-					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
-					break;
-				}
-				System.out.print("사용자명 입력:");
-				user = sc.nextLine();
-				System.out.print("비밀번호 입력:");
-				pwd = sc.nextLine();
-				connecter(url, user, pwd);
-				connectCount();
+		while(true) {
+			if(conn!=null) break;
+			
+			String firstInput = printLocal();
+			int dashFlag = firstInput.indexOf("/");
+			String user="";
+			String pwd="";
+			
+			if(firstInput.equalsIgnoreCase("sqlplus")) {//아이디/비번 입력필요
+					System.out.print("사용자명 입력:");
+					user = sc.nextLine();
+					System.out.print("비밀번호 입력:");
+					pwd = sc.nextLine();
+					connecter(url, user, pwd);
+					connectCount();
+			}else if(dashFlag==-1) {//아이디입력됨
+					System.out.print("비밀번호 입력:");
+					user = firstInput.substring(firstInput.indexOf(" ")+1);
+					pwd = sc.nextLine();
+					connecter(url, user, pwd);
+					connectCount();
+			}else if(dashFlag>=0){//아이디/비번 입력됨
+					user = firstInput.substring(firstInput.indexOf(" ")+1,dashFlag);
+					pwd = firstInput.substring(dashFlag+1);
+					connecter(url, user, pwd);
+					connectCount();
+			}else {//아무것도 아닐때
+				System.out.println(
+					firstInput+"은(는) 내부 또는 외부 명령, 실행할 수 있는 프로그램, "
+					+ "또는\r\n배치 파일이 아닙니다.");
 			}
-		}else if(dashFlag==-1) {//아이디입력됨
-			while(true) {
-				if(!conn.equals(null)) {
-					break;
-				}
-				if(connectCounter>3) {
-					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
-					break;
-				}
-				System.out.print("비밀번호 입력:");
-				user = firstInput.substring(firstInput.indexOf(" ")+1);
-				pwd = sc.nextLine();
-				connecter(url, user, pwd);
-				connectCount();
+			
+			if(connectCounter>3) {
+				System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
+				break;
 			}
-		}else if(dashFlag>=0){//아이디/비번 입력됨
-			while(true) {
-				if(conn!=null) {
-					break;
-				}
-				if(connectCounter>3) {
-					System.out.println("\r\nSP2-0157: 3회 시도후 ORACLE에 CONNECT 하지 못하고 SQL*Plus을 종료했습니다.");
-					break;
-				}
-				user = firstInput.substring(firstInput.indexOf(" ")+1,dashFlag);
-				pwd = firstInput.substring(dashFlag+1);
-				connecter(url, user, pwd);
-				connectCount();
-			}
-		}else {//아무것도 아닐때
-			System.out.println(
-				firstInput+"은(는) 내부 또는 외부 명령, 실행할 수 있는 프로그램, "
-				+ "또는\r\n배치 파일이 아닙니다.");
-		}
+		}//while
 		
 	}
 	
@@ -128,8 +105,6 @@ public class IConnectImpl implements IConnect{
 		}
 	}
 	
-		
-
 	@Override
 	public void execute() throws Exception {}
 
