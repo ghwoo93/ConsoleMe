@@ -13,60 +13,106 @@ import java.util.Vector;
 
 public class SQLPlus extends IConnectImpl{
 	
+	private int sFlag = 0;
+	
 	public String desc(String query) {
-		String tableName = query.substring(4);
+		String tableName = query.substring(5);
+		System.out.println(tableName);
 		return "SELECT * FROM "+tableName;
 	}
 	
 	
 	public void select() throws SQLException {
+		String[] descColumnName = new String[] {"Name","Null?","Type"};
+		String columnName;
+		
 		rs=psmt.getResultSet();
 		ResultSetMetaData rsmd = rs.getMetaData();
 		int columnCount = rsmd.getColumnCount();
 		
-		//select
 		List<Integer> dashCount = new Vector<Integer>();
-		for(int i=1;i<=columnCount;i++) {
-			int types = rsmd.getColumnType(i);
+		if(sFlag==1) {
+			dashCount.add(20);
+			dashCount.add(8);
+			dashCount.add(20);
+				for(int i=0;i<descColumnName.length;i++) {
+				System.out.print(String.format(
+						"%-"+(dashCount.get(i)+1)+"s",
+						descColumnName[i]
+						));
+				}
+			System.out.println();
 			
-			int length = rsmd.getPrecision(i);
+			/* column metadate 밑의 대쉬 출력하기 */
+			for(Integer dash:dashCount) {
+				for(int i=0;i<dash;i++)
+					System.out.print("=");
+				System.out.print(" "); //column 하나 마다 끝에 한칸씩 띄움
+			} System.out.println(); //column이름 전부출력후 줄바꿈
 			
-			switch(types) {
-			case Types.NCHAR:
-			case Types.NVARCHAR:
-				dashCount.add(length*2);break;
-			case Types.TIMESTAMP:
-			case Types.NUMERIC:
-				dashCount.add(10);break;
-			default:dashCount.add(length);
-			}
-			String columnName = 
-					rsmd.getColumnName(i).length()>dashCount.get(i-1)?
-							rsmd.getColumnName(i).substring(0, dashCount.get(i-1)):
-								rsmd.getColumnName(i);
-			System.out.print(
-					String.format(
-							"%-"+(dashCount.get(i-1)+1)+"s", columnName));
-		}
-		System.out.println();
-		for(Integer dash:dashCount) {
-			for(int i=0;i<dash;i++) System.out.print('-');
-			System.out.print(" ");
-		}
-		System.out.println();
-		while(rs.next()) {
 			for(int i=1;i<=columnCount;i++) {
-				int type = rsmd.getColumnType(i);
-				if(type==Types.TIMESTAMP) {
-					System.out.print(String.format("%-11s", rs.getDate(i)));
+				int j=0;
+					System.out.print(String.format(
+												"%-"+(dashCount.get(j++)+1)+"s"
+												,rsmd.getColumnName(i) ));
+					if(rsmd.isNullable(i)==1)
+					System.out.print(String.format(
+												"%-"+(dashCount.get(j++)+1)+"s"
+												," " ));
+					else
+					System.out.print(String.format(
+												"%-"+(dashCount.get(j++)+1)+"s"
+												,"NOT NULL" ));
+					System.out.print(String.format(
+												"%-"+(dashCount.get(j++)+1)+"s"
+												,rsmd.getColumnTypeName(i) ));
+					
+				System.out.println();
+			}System.out.println();
+		}else {
+			//select
+			for(int i=1;i<=columnCount;i++) {
+				int types = rsmd.getColumnType(i);
+				
+				int length = rsmd.getPrecision(i);
+				
+				switch(types) {
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					dashCount.add(length*2);break;
+				case Types.TIMESTAMP:
+				case Types.NUMERIC:
+					dashCount.add(10);break;
+				default:dashCount.add(length);
 				}
-				else {
-					System.out.print(
-							String.format(
-									"%-"+(dashCount.get(i-1)+1)+"s", rs.getString(i)));
-				}
+				columnName = 
+						rsmd.getColumnName(i).length()>dashCount.get(i-1)?
+								rsmd.getColumnName(i).substring(0, dashCount.get(i-1)):
+									rsmd.getColumnName(i);
+				System.out.print(
+						String.format(
+								"%-"+(dashCount.get(i-1)+1)+"s", columnName));
 			}
 			System.out.println();
+			for(Integer dash:dashCount) {
+				for(int i=0;i<dash;i++) System.out.print('-');
+				System.out.print(" ");
+			}
+			System.out.println();
+			while(rs.next()) {
+				for(int i=1;i<=columnCount;i++) {
+					int type = rsmd.getColumnType(i);
+					if(type==Types.TIMESTAMP) {
+						System.out.print(String.format("%-11s", rs.getDate(i)));
+					}
+					else {
+						System.out.print(
+								String.format(
+										"%-"+(dashCount.get(i-1)+1)+"s", rs.getString(i)));
+					}
+				}
+				System.out.println();
+			}
 		}
 	}
 	
@@ -114,6 +160,7 @@ public class SQLPlus extends IConnectImpl{
 			e.printStackTrace();
 		}
 	}
+	
 	//System.getProperty("user.home")
 	//프로시저 안됨
 	public String fileRead(String query) {
@@ -162,27 +209,31 @@ public class SQLPlus extends IConnectImpl{
 			//conn,show,ed,@,commit
 			if("EXIT".equalsIgnoreCase(query.trim())) {
 				exit();
-			}else if(query.contains("conn")) {
+			}else if(query.startsWith("conn")) {
 				conn(query);
-			}else if(query.contains("show")) {
+			}else if(query.startsWith("show")) {
 				System.out.println(show());
-			}else if(query.contains("commit")) {
+			}else if(query.startsWith("commit")) {
 				commit();
 				System.out.println("커밋완료");
-			}else if(query.contains("ed")) {
+			}else if(query.startsWith("ed")) {
 				ed(query);
-			}else if(query.contains("@")){
+			}else if(query.startsWith("@")){
 				query = fileRead(query);
 				ccFlag = true;
 				continue;
 			}else {
-				psmt=conn.prepareStatement(query);
-				boolean flag = psmt.execute();
 				//여기서 desc
-				if(query.contains("desc")) {
+				if(query.startsWith("desc")) {
 					//desc
-					
-				}else {
+					query = desc(query);
+					sFlag = 1;
+					ccFlag = true;
+					System.out.println(query);
+					continue;
+				}else if(query.contains("SELECT")){
+					psmt=conn.prepareStatement(query);
+					boolean flag = psmt.execute();
 					//select
 					try {
 						if(flag) { //쿼리문이 select
@@ -195,6 +246,10 @@ public class SQLPlus extends IConnectImpl{
 								System.out.println(affected+"행이 삭제되었어요.");
 							}else if(query.trim().toUpperCase().startsWith("INSERT")) {
 								System.out.println(affected+"행이 입력되었어요.");
+							}else if(query.trim().toUpperCase().startsWith("CREATE")) {
+								System.out.println(affected);
+							}else if(query.trim().toUpperCase().startsWith("GRANT")) {
+								System.out.println(affected);
 							}
 						}
 						
@@ -204,6 +259,7 @@ public class SQLPlus extends IConnectImpl{
 				}
 			}
 			ccFlag = false; 
+			sFlag = 0;
 		}//while
 	}
 	
@@ -211,10 +267,8 @@ public class SQLPlus extends IConnectImpl{
 		SQLPlus main = new SQLPlus();
 		while(true) {
 			if(main.conn==null) {
-				System.out.println("log");
 				main.login(ORACLE_URL);
 			} else if(main.conn!=null) {
-				System.out.println("exe");
 				main.execute();
 			}
 			if(main.getConnectCounter()>3) {
